@@ -14,9 +14,56 @@ MODULE_VERSION("0.1");
 static dev_t dev;
 static struct cdev cdv;
 static struct class *cls = NULL;
-static volatile u32* gpio_base = NULL;
+static volatile u32* i2c_base = NULL;
 
-static ssize_t led_write(struct file* filp, const char* buf, size_t count, loff_t* pos){
+typedef union {
+	u32 All_Bits
+	struct{
+		unsigned bit0:1;
+		unsigned bit1:1;
+		unsigned bit2:1;
+		unsigned bit3:1;
+		unsigned bit4:1;
+		unsigned bit5:1;
+		unsigned bit6:1;
+		unsigned bit7:1;
+		unsigned bit8:1;
+		unsigned bit9:1;
+		unsigned bit10:1;
+		unsigned bit11:1;
+		unsigned bit12:1;
+		unsigned bit13:1;
+		unsigned bit14:1;
+		unsigned bit15:1;
+		unsigned bit16:1;
+		unsigned bit17:1;
+		unsigned bit18:1;
+		unsigned bit19:1;
+		unsigned bit20:1;
+		unsigned bit21:1;
+		unsigned bit22:1;
+		unsigned bit23:1;
+		unsigned bit24:1;
+		unsigned bit25:1;
+		unsigned bit26:1;
+		unsigned bit27:1;
+		unsigned bit28:1;
+		unsigned bit29:1;
+		unsigned bit30:1;
+		unsigned bit31:1;
+	}
+}uniByte;
+static volatile uniByte* C_Reg		= NULL;
+static volatile uniByte* S_Reg		= NULL;
+static volatile uniByte* DLEN_Reg	= NULL;
+static volatile uniByte* A_Reg		= NULL;
+static volatile uniByte* FIFO_Reg	= NULL;
+static volatile uniByte* DIV_Reg	= NULL;
+static volatile uniByte* DEL_Reg	= NULL;
+static volatile uniByte* CLKT_Reg	= NULL;
+
+const u8 LcdAddr = 0x40;
+static ssize_t i2c_write(struct file* filp, const char* buf, size_t count, loff_t* pos){
 	char c_buff;
 	if(copy_from_user(&c_buff, buf, sizeof(char))){
 		return -EFAULT;
@@ -37,18 +84,22 @@ static struct file_operations led_fops = {
 
 static int __init init_mod(void){
 	int retval;
-	u32 gpio_base_addr = 0x3F200000;
-	u8 region_of_map = 0xA0;
-	gpio_base = ioremap(gpio_base_addr, region_of_map);
+	u32 i2c_base_addr = 0x3F205000;
+	u8 region_of_map = 0x20;
+	i2c_base = ioremap(i2c_base_addr, region_of_map);
 
-	const u32 led = 25;		//gpio 25
-	const u32 index = led/10;	//10 gpio for 4 bytes
-	const u32 shift = (led % 10)*3;	//3 bits for 1 gpio
-	const u32 mask = ~(0x07 << shift);
-	gpio_base[index] = ((gpio_base[index] & mask) | /*clear gpio 25 related bits*/
-		(0x01 << shift)); //set gpio 25 as output
+	C_Reg	= i2c_base[0];
+	c_Reg.bit15 =1; //enable i2c
+	S_Reg	= i2c_base[1];
+	DLEN_Reg= i2c_base[2];
+	A_Reg	= i2c_base[3];
+	FIFO_Reg= i2c_base[4];
+	DIV_Reg = i2c_base[5];
+	DEL_Reg = i2c_base[6];
+	CLKT_Reg= i2c_base[7];
 
-	retval = alloc_chrdev_region(&dev, 0, 1, "myled");
+
+	retval = alloc_chrdev_region(&dev, 0, 1, "myI2C");
 	if(retval < 0){
 		printk(KERN_ERR "alloc_chrdev fail!!.\n");
 		return retval;
